@@ -1,10 +1,10 @@
 #!/usr/bin/env python
  
 """IMAP Incremental Backup Script"""
-__version__ = "1.4d"
+__version__ = "1.4e"
 __author__ = "Rui Carmo (http://the.taoofmac.com)"
-__copyright__ = "(C) 2006 Rui Carmo. Code under MIT License.(C)"
-__contributors__ = "Bob Ippolito, Michael Leonhard, Giuseppe Scrivano <gscrivano@gnu.org>, Ronan Sheth, Brandon Long"
+__copyright__ = "(C) 2006-2013 Rui Carmo. Code under MIT License.(C)"
+__contributors__ = "Bob Ippolito, Michael Leonhard, Giuseppe Scrivano <gscrivano@gnu.org>, Ronan Sheth, Brandon Long, Christian Schanz"
  
 # = Contributors =
 # Brandon Long (Gmail team): Reminder to use BODY.PEEK instead of BODY
@@ -358,6 +358,7 @@ def print_usage():
   print " -z --compress=gzip        Use mbox.gz files.  Appending may be very slow."
   print " -b --compress=bzip2       Use mbox.bz2 files. Appending not supported: use -y."
   print " -f --=folder              Specifify which folders use.  Comma separated list."
+  print ' -t --target="/path/"      Specify target directory.'
   print " -e --ssl                  Use SSL.  Port defaults to 993."
   print " -k KEY --key=KEY          PEM private key file for SSL.  Specify cert, too."
   print " -c CERT --cert=CERT       PEM certificate chain for SSL.  Specify key, too."
@@ -372,15 +373,15 @@ def process_cline():
   """Uses getopt to process command line, returns (config, warnings, errors)"""
   # read command line
   try:
-    short_args = "aynzbek:c:s:u:p:f:"
+    short_args = "aynzbek:c:s:u:p:f:t:"
     long_args = ["append-to-mboxes", "yes-overwrite-mboxes", "compress=",
-                 "ssl", "keyfile=", "certfile=", "server=", "user=", "pass=", "folders="]
+                 "ssl", "keyfile=", "certfile=", "server=", "user=", "pass=", "folders=", "target="]
     opts, extraargs = getopt.getopt(sys.argv[1:], short_args, long_args)
   except getopt.GetoptError:
     print_usage()
  
   warnings = []
-  config = {'compress':'none', 'overwrite':False, 'usessl':False}
+  config = {'compress':'none', 'overwrite':False, 'usessl':False, 'target':""}
   errors = []
  
   # empty command line
@@ -411,6 +412,10 @@ def process_cline():
       config['keyfilename'] = value
     elif option in ("-f", "--folders"):
       config['folders'] = value
+    elif option in ("-t", "--target"):
+      if not value.endswith(os.sep):
+        value += os.sep
+      config['target'] = value
     elif option in ("-c", "--certfile"):
       config['certfilename'] = value
     elif option in ("-s", "--server"):
@@ -560,6 +565,7 @@ def main():
     for name_pair in names:
       try:
         foldername, filename = name_pair
+        filename = config['target'] + filename
         fol_messages = scan_folder(server, foldername)
         fil_messages = scan_file(filename, config['compress'], config['overwrite'])
  
