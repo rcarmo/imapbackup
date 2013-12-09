@@ -1,12 +1,14 @@
 #!/usr/bin/env python
  
 """IMAP Incremental Backup Script"""
-__version__ = "1.4e"
+__version__ = "1.4f"
 __author__ = "Rui Carmo (http://the.taoofmac.com)"
 __copyright__ = "(C) 2006-2013 Rui Carmo. Code under MIT License.(C)"
-__contributors__ = "Bob Ippolito, Michael Leonhard, Giuseppe Scrivano <gscrivano@gnu.org>, Ronan Sheth, Brandon Long, Christian Schanz"
+__contributors__ = "Bob Ippolito, Michael Leonhard, Giuseppe Scrivano <gscrivano@gnu.org>, Ronan Sheth, Brandon Long, Christian Schanz, A. Bovett"
  
 # = Contributors =
+# A. Bovett: Modifications for Thunderbird compatibility and disabling spinner in Windows
+#  Christian Schanz: added target directory parameter
 # Brandon Long (Gmail team): Reminder to use BODY.PEEK instead of BODY
 # Ronan Sheth: hashlib patch (this now requires Python 2.5, although reverting it back is trivial)
 # Giuseppe Scrivano: Added support for folders.
@@ -27,8 +29,6 @@ __contributors__ = "Bob Ippolito, Michael Leonhard, Giuseppe Scrivano <gscrivano
 # - Add regex option to filter folders
 # - Use a single IMAP command to get Message-IDs
 # - Use a single IMAP command to fetch the messages
-# - Add option to turn off spinner.  Since sys.stdin.isatty() doesn't work on
-#   Windows, redirecting output to a file results in junk output.
 # - Patch Python's ssl module to do proper checking of certificate chain
 # - Patch Python's ssl module to raise good exceptions
 # - Submit patch of socket._fileobject.read
@@ -42,7 +42,8 @@ __contributors__ = "Bob Ippolito, Michael Leonhard, Giuseppe Scrivano <gscrivano
 import getpass, os, gc, sys, time, platform, getopt
 import mailbox, imaplib, socket
 import re, hashlib, gzip, bz2
- 
+
+
 class SkipFolderException(Exception):
   """Indicates aborting processing of current folder, continue with next folder."""
   pass
@@ -50,25 +51,26 @@ class SkipFolderException(Exception):
 class Spinner:
   """Prints out message with cute spinner, indicating progress"""
  
-  def __init__(self, message):
+  def __init__(self, message, nospinner):
     """Spinner constructor"""
     self.glyphs = "|/-\\"
     self.pos = 0
     self.message = message
+    self.nospinner = nospinner
     sys.stdout.write(message)
     sys.stdout.flush()
     self.spin()
  
   def spin(self):
     """Rotate the spinner"""
-    if sys.stdin.isatty():
+    if sys.stdin.isatty() and not self.nospinner:
       sys.stdout.write("\r" + self.message + " " + self.glyphs[self.pos])
       sys.stdout.flush()
       self.pos = (self.pos+1) % len(self.glyphs)
  
   def stop(self):
     """Erase the spinner from the screen"""
-    if sys.stdin.isatty():
+    if sys.stdin.isatty() and not self.nospinner:
       sys.stdout.write("\r" + self.message + "  ")
       sys.stdout.write("\r" + self.message)
       sys.stdout.flush()
@@ -122,8 +124,9 @@ def download_messages(server, filename, messages, config):
     print "New messages: 0"
     mbox.close()
     return
- 
-  spinner = Spinner("Downloading %s new messages to %s" % (len(messages), filename))
+
+  spinner = Spinner("Downloading %s new messages to %s" % (len(messages), filename),
+                    config['nospinner'])
   total = biggest = 0
  
   # each new message
@@ -140,7 +143,11 @@ def download_messages(server, filename, messages, config):
     # fetch message
     typ, data = server.fetch(messages[msg_id], "RFC822")
     assert('OK' == typ)
-    text = data[0][1].strip().replace('\r','')
+    text = data[0][1].strip().replace('\r','')  
+    if config['thunderbird']:
+      # This avoids Thunderbird mistaking a line starting "From  " as the start
+      # of a new message. _Might_ also apply to other mail lients - unknown
+      text = text.replace("\nFrom ", "\n From ")
     mbox.write(text)
     mbox.write('\n\n')
  
@@ -157,7 +164,7 @@ def download_messages(server, filename, messages, config):
   print ": %s total, %s for largest message" % (pretty_byte_count(total),
                                                 pretty_byte_count(biggest))
  
-def scan_file(filename, compress, overwrite):
+def scan_file(filename, compress, overwrite, nospinner):
   """Gets IDs of messages in the specified mbox file"""
   # file will be overwritten
   if overwrite:
@@ -170,7 +177,7 @@ def scan_file(filename, compress, overwrite):
     print "File %s: not found" % (filename)
     return []
  
-  spinner = Spinner("File %s" % (filename))
+  spinner = Spinner("File %s" % (filename), nospinner)
  
   # open the file
   if compress == 'gzip':
@@ -216,10 +223,10 @@ def scan_file(filename, compress, overwrite):
   print ": %d messages" % (len(messages.keys()))
   return messages
  
-def scan_folder(server, foldername):
+def scan_folder(server, foldername, nospinner):
   """Gets IDs of messages in the specified folder, returns id:num dict"""
   messages = {}
-  spinner = Spinner("Folder %s" % (foldername))
+  spinner = Spinner("Folder %s" % (foldername), nospinner)
   try:
     typ, data = server.select(foldername, readonly=True)
     if 'OK' != typ:
@@ -319,10 +326,10 @@ def get_hierarchy_delimiter(server):
     hierarchy_delim = '.'
   return hierarchy_delim
  
-def get_names(server, compress):
+def get_names(server, compress, thunderbird, nospinner):
   """Get list of folders, returns [(FolderName,FileName)]"""
  
-  spinner = Spinner("Finding Folders")
+  spinner = Spinner("Finding Folders", nospinner)
  
   # Get hierarchy delimiter
   delim = get_hierarchy_delimiter(server)
@@ -340,7 +347,14 @@ def get_names(server, compress):
     lst = parse_list(row)
     foldername = lst[2]
     suffix = {'none':'', 'gzip':'.gz', 'bzip2':'.bz2'}[compress]
-    filename = '.'.join(foldername.split(delim)) + '.mbox' + suffix
+    if thunderbird:
+      filename = '.sbd/'.join(foldername.split(delim)) + suffix
+      if filename.startswith("INBOX"):
+        filename = filename.replace("INBOX","Inbox")
+    else:
+      filename = '.'.join(foldername.split(delim)) + '.mbox' + suffix
+    # print "\n*** Folder:", foldername # *DEBUG
+    # print "***   File:", filename # *DEBUG
     names.append((foldername, filename))
  
   # done
@@ -358,7 +372,6 @@ def print_usage():
   print " -z --compress=gzip        Use mbox.gz files.  Appending may be very slow."
   print " -b --compress=bzip2       Use mbox.bz2 files. Appending not supported: use -y."
   print " -f --=folder              Specifify which folders use.  Comma separated list."
-  print ' -t --target="/path/"      Specify target directory.'
   print " -e --ssl                  Use SSL.  Port defaults to 993."
   print " -k KEY --key=KEY          PEM private key file for SSL.  Specify cert, too."
   print " -c CERT --cert=CERT       PEM certificate chain for SSL.  Specify key, too."
@@ -366,6 +379,8 @@ def print_usage():
   print " -s HOST --server=HOST     Address of server, port optional, eg. mail.com:143"
   print " -u USER --user=USER       Username to log into server"
   print " -p PASS --pass=PASS       Prompts for password if not specified."
+  print " --thunderbird             Create Mozilla Thunderbird compatible mailbox"
+  print " --nospinner               Disable spinner (makes output log-friendly)"
   print "\nNOTE: mbox files are created in the current working directory."
   sys.exit(2)
  
@@ -373,15 +388,17 @@ def process_cline():
   """Uses getopt to process command line, returns (config, warnings, errors)"""
   # read command line
   try:
-    short_args = "aynzbek:c:s:u:p:f:t:"
+    short_args = "aynzbek:c:s:u:p:f:"
     long_args = ["append-to-mboxes", "yes-overwrite-mboxes", "compress=",
-                 "ssl", "keyfile=", "certfile=", "server=", "user=", "pass=", "folders=", "target="]
+                 "ssl", "keyfile=", "certfile=", "server=", "user=", "pass=", 
+                 "folders=", "thunderbird", "nospinner"]
     opts, extraargs = getopt.getopt(sys.argv[1:], short_args, long_args)
   except getopt.GetoptError:
     print_usage()
  
   warnings = []
-  config = {'compress':'none', 'overwrite':False, 'usessl':False, 'target':""}
+  config = {'compress':'none', 'overwrite':False, 'usessl':False,
+            'thunderbird':False, 'nospinner':False}
   errors = []
  
   # empty command line
@@ -412,10 +429,6 @@ def process_cline():
       config['keyfilename'] = value
     elif option in ("-f", "--folders"):
       config['folders'] = value
-    elif option in ("-t", "--target"):
-      if not value.endswith(os.sep):
-        value += os.sep
-      config['target'] = value
     elif option in ("-c", "--certfile"):
       config['certfilename'] = value
     elif option in ("-s", "--server"):
@@ -424,6 +437,10 @@ def process_cline():
       config['user'] = value
     elif option in ("-p", "--pass"):
       config['pass'] = value
+    elif option == "--thunderbird":
+      config['thunderbird'] = True
+    elif option == "--nospinner":
+      config['nospinner'] = True
     else:
       errors.append("Unknown option: " + option)
  
@@ -548,27 +565,43 @@ def connect_and_login(config):
  
   return server
  
+def create_folder_structure(names):
+  """ Create the folder structure on disk """
+  for imap_foldername, filename in sorted(names):
+    disk_foldername = os.path.split(filename)[0]
+    if disk_foldername:
+      try:
+        # print "*** mkdir:", disk_foldername  # *DEBUG
+        os.mkdir(disk_foldername)
+      except OSError, e:
+        if e.errno != 17:
+          raise
+        
 def main():
   """Main entry point"""
   try:
     config = get_config()
     server = connect_and_login(config)
-    names = get_names(server, config['compress'])
- 
+    names = get_names(server, config['compress'], config['thunderbird'],
+                      config['nospinner'])
     if config.get('folders'):
       dirs = map (lambda x: x.strip(), config.get('folders').split(','))
+      if config['thunderbird']:
+        dirs = [i.replace("Inbox", "INBOX", 1) if i.startswith("Inbox") else i                
+                for i in dirs]
       names = filter (lambda x: x[0] in dirs, names)
  
-    #for n in range(len(names)):
-    #  print n, names[n]
+    # for n, name in enumerate(names): # *DEBUG
+    #   print n, name # *DEBUG
  
+    create_folder_structure(names)
+
     for name_pair in names:
       try:
         foldername, filename = name_pair
-        filename = config['target'] + filename
-        fol_messages = scan_folder(server, foldername)
-        fil_messages = scan_file(filename, config['compress'], config['overwrite'])
- 
+        fol_messages = scan_folder(server, foldername, config['nospinner'])
+        fil_messages = scan_file(filename, config['compress'],
+                                 config['overwrite'], config['nospinner'])
         new_messages = {}
         for msg_id in fol_messages:
           if msg_id not in fil_messages:
