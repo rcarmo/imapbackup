@@ -4,9 +4,10 @@
 __version__ = "1.4g"
 __author__ = "Rui Carmo (http://taoofmac.com)"
 __copyright__ = "(C) 2006-2017 Rui Carmo. Code under MIT License.(C)"
-__contributors__ = "Bob Ippolito, Michael Leonhard, Giuseppe Scrivano <gscrivano@gnu.org>, Ronan Sheth, Brandon Long, Christian Schanz, A. Bovett"
+__contributors__ = "Andrew Baxter, Bob Ippolito, Michael Leonhard, Giuseppe Scrivano <gscrivano@gnu.org>, Ronan Sheth, Brandon Long, Christian Schanz, A. Bovett"
  
 # = Contributors =
+# Andrew Baxter: fix for message_id checks
 # A. Bovett: Modifications for Thunderbird compatibility and disabling spinner in Windows
 #  Christian Schanz: added target directory parameter
 # Brandon Long (Gmail team): Reminder to use BODY.PEEK instead of BODY
