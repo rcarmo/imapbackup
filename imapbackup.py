@@ -1,9 +1,9 @@
 #!/usr/bin/env python
  
 """IMAP Incremental Backup Script"""
-__version__ = "1.4f"
-__author__ = "Rui Carmo (http://the.taoofmac.com)"
-__copyright__ = "(C) 2006-2013 Rui Carmo. Code under MIT License.(C)"
+__version__ = "1.4g"
+__author__ = "Rui Carmo (http://taoofmac.com)"
+__copyright__ = "(C) 2006-2017 Rui Carmo. Code under MIT License.(C)"
 __contributors__ = "Bob Ippolito, Michael Leonhard, Giuseppe Scrivano <gscrivano@gnu.org>, Ronan Sheth, Brandon Long, Christian Schanz, A. Bovett"
  
 # = Contributors =
