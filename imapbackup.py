@@ -603,7 +603,7 @@ def main():
         fil_messages = scan_file(filename, config['compress'],
                                  config['overwrite'], config['nospinner'])
         new_messages = {}
-        for msg_id in fol_messages:
+        for msg_id in fol_messages.keys():
           if msg_id not in fil_messages:
             new_messages[msg_id] = fol_messages[msg_id]
  
