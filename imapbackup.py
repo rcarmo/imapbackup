@@ -1,9 +1,9 @@
-#!/usr/bin/env python
+#!/usr/bin/env python -u
  
 """IMAP Incremental Backup Script"""
-__version__ = "1.4g"
+__version__ = "1.4h"
 __author__ = "Rui Carmo (http://taoofmac.com)"
-__copyright__ = "(C) 2006-2017 Rui Carmo. Code under MIT License.(C)"
+__copyright__ = "(C) 2006-2018 Rui Carmo. Code under MIT License.(C)"
 __contributors__ = "jwagnerhki, Bob Ippolito, Michael Leonhard, Giuseppe Scrivano <gscrivano@gnu.org>, Ronan Sheth, Brandon Long, Christian Schanz, A. Bovett"
  
 # = Contributors =
@@ -35,6 +35,8 @@ __contributors__ = "jwagnerhki, Bob Ippolito, Michael Leonhard, Giuseppe Scrivan
 # - Submit patch of socket._fileobject.read
 # - Improve imaplib module with LIST parsing code, submit patch
 # DONE:
+# v1.4h
+# - Add timeout option
 # v1.3c
 # - Add SSL support
 # - Support host:port
@@ -380,6 +382,7 @@ def print_usage():
   print " -s HOST --server=HOST     Address of server, port optional, eg. mail.com:143"
   print " -u USER --user=USER       Username to log into server"
   print " -p PASS --pass=PASS       Prompts for password if not specified."
+  print " -t SECS --timeout=SECS    Sets socket timeout to SECS seconds."
   print " --thunderbird             Create Mozilla Thunderbird compatible mailbox"
   print " --nospinner               Disable spinner (makes output log-friendly)"
   print "\nNOTE: mbox files are created in the current working directory."
@@ -438,6 +441,8 @@ def process_cline():
       config['user'] = value
     elif option in ("-p", "--pass"):
       config['pass'] = value
+    elif option in ("-t", "--timeout"):
+      config['timeout'] = value
     elif option == "--thunderbird":
       config['thunderbird'] = True
     elif option == "--nospinner":
@@ -484,6 +489,14 @@ def check_config(config, warnings, errors):
         config['port'] = port
       except ValueError:
         errors.append("Invalid port.  Port must be an integer between 0 and 65535.")
+  if 'timeout' in config:
+    try:
+      timeout = int(config['timeout'])
+      if timeout <= 0:
+        raise ValueError
+      config['timeout']=timeout
+    except ValueError:
+      errors.append("Invalid timeout value.  Must be an integer greater than 0.")
   return (config, warnings, errors)
  
 def get_config():
@@ -531,7 +544,9 @@ def connect_and_login(config):
   """Connects to the server and logs in.  Returns IMAP4 object."""
   try:
     assert(not (('keyfilename' in config) ^ ('certfilename' in config)))
- 
+    if config['timeout']:
+      socket.setdefaulttimeout(config['timeout'])
+
     if config['usessl'] and 'keyfilename' in config:
       print "Connecting to '%s' TCP port %d," % (config['server'], config['port']),
       print "SSL, key from %s," % (config['keyfilename']),
