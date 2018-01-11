@@ -536,6 +536,8 @@ def get_config():
       config['port'] = 993
     else:
       config['port'] = 143
+  if not 'timeout' in config:
+    config['timeout'] = 60
  
   # done!
   return config
