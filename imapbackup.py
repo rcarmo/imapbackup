@@ -392,9 +392,9 @@ def process_cline():
   """Uses getopt to process command line, returns (config, warnings, errors)"""
   # read command line
   try:
-    short_args = "aynzbek:c:s:u:p:f:"
+    short_args = "aynzbekt:c:s:u:p:f:"
     long_args = ["append-to-mboxes", "yes-overwrite-mboxes", "compress=",
-                 "ssl", "keyfile=", "certfile=", "server=", "user=", "pass=", 
+                 "ssl", "timeout", "keyfile=", "certfile=", "server=", "user=", "pass=", 
                  "folders=", "thunderbird", "nospinner"]
     opts, extraargs = getopt.getopt(sys.argv[1:], short_args, long_args)
   except getopt.GetoptError:
