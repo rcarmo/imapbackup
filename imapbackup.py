@@ -707,7 +707,8 @@ def _fixed_socket_read(self, size=-1):
 # Platform detection to enable socket patch
 if 'Darwin' in platform.platform() and '2.3.5' == platform.python_version():
   socket._fileobject.read = _fixed_socket_read
-if 'Windows' in platform.platform():
+# 20181212: Windows 10 + Python 2.7 doesn't need this fix (fix leads to error: object of type 'cStringIO.StringO' has no len())
+if 'Windows' in platform.platform() and '2.3.5' == platform.python_version():
   socket._fileobject.read = _fixed_socket_read
  
 if __name__ == '__main__':
