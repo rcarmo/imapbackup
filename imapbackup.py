@@ -4,9 +4,10 @@
 __version__ = "1.4h"
 __author__ = "Rui Carmo (http://taoofmac.com)"
 __copyright__ = "(C) 2006-2018 Rui Carmo. Code under MIT License.(C)"
-__contributors__ = "jwagnerhki, Bob Ippolito, Michael Leonhard, Giuseppe Scrivano <gscrivano@gnu.org>, Ronan Sheth, Brandon Long, Christian Schanz, A. Bovett"
+__contributors__ = "jwagnerhki, Bob Ippolito, Michael Leonhard, Giuseppe Scrivano <gscrivano@gnu.org>, Ronan Sheth, Brandon Long, Christian Schanz, A. Bovett, Mark Feit"
  
 # = Contributors =
+# http://github.com/markfeit: Allow password to be read from a file
 # http://github.com/jwagnerhki: fix for message_id checks
 # A. Bovett: Modifications for Thunderbird compatibility and disabling spinner in Windows
 #  Christian Schanz: added target directory parameter
@@ -101,6 +102,28 @@ BLANKS_RE = re.compile(r'\s+', re.MULTILINE)
 # Constants
 UUID = '19AF1258-1AAF-44EF-9D9A-731079D6FAD7' # Used to generate Message-Ids
  
+
+def string_from_file(value):
+    """
+    Read a string from a file or return the string unchanged.
+
+    If the string begins with '@', the remainder of the string
+    will be treated as a path to the file to be read.  Precede
+    the '@' with a '\' to treat it as a literal.
+    """
+
+    assert isinstance(value, basestring)
+
+    if not value or value[0] not in ["\\", "@"]:
+        return value
+
+    if value[0] == "\\":
+        return value[1:]
+
+    with open(os.path.expanduser(value[1:]), 'r') as content:
+        return content.read().strip()
+
+
 def download_messages(server, filename, messages, config):
   """Download messages from folder and append to mailbox"""
  
@@ -381,7 +404,9 @@ def print_usage():
   print "                           Python's SSL module doesn't check the cert chain."
   print " -s HOST --server=HOST     Address of server, port optional, eg. mail.com:143"
   print " -u USER --user=USER       Username to log into server"
-  print " -p PASS --pass=PASS       Prompts for password if not specified."
+  print " -p PASS --pass=PASS       Prompts for password if not specified.  If the first"
+  print "                           character is '@', treat the rest as a path to a file"
+  print "                           containing the password.  Leading '\' makes it literal."
   print " -t SECS --timeout=SECS    Sets socket timeout to SECS seconds."
   print " --thunderbird             Create Mozilla Thunderbird compatible mailbox"
   print " --nospinner               Disable spinner (makes output log-friendly)"
@@ -440,7 +465,10 @@ def process_cline():
     elif option in ("-u", "--user"):
       config['user'] = value
     elif option in ("-p", "--pass"):
-      config['pass'] = value
+      try:
+        config['pass'] = string_from_file(value)
+      except Exception as ex:
+        errors.append("Can't read password: %s" % (str(ex)))
     elif option in ("-t", "--timeout"):
       config['timeout'] = value
     elif option == "--thunderbird":
