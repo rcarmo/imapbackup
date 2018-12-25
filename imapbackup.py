@@ -159,7 +159,7 @@ def download_messages(server, filename, messages, config):
   for msg_id in messages.keys():
     # This "From" and the terminating newline below delimit messages
     # in mbox files
-    buf = "From nobody %s\n" % time.strftime('%a %m %d %H:%M:%S %Y') 
+    buf = "From nobody %s\n" % time.strftime('%a %b %d %H:%M:%S %Y') 
     # If this is one of our synthesised Message-IDs, insert it before
     # the other headers
     if UUID in msg_id:
