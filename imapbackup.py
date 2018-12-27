@@ -124,6 +124,20 @@ def string_from_file(value):
         return content.read().strip()
 
 
+class Narrator:
+    """Globally-switchable narrator to replace print statements"""
+    def __init__(self, is_on):
+        self.is_on = is_on
+
+    def __call__(self, *args):
+        if self.is_on:
+            for arg in args:
+                print arg,
+            print
+
+
+
+
 def download_messages(server, filename, messages, config):
   """Download messages from folder and append to mailbox"""
  
@@ -157,9 +171,12 @@ def download_messages(server, filename, messages, config):
  
   # each new message
   for msg_id in messages.keys():
+
     # This "From" and the terminating newline below delimit messages
-    # in mbox files
-    buf = "From nobody %s\n" % time.strftime('%a %b %d %H:%M:%S %Y') 
+    # in mbox files.  Note that RFC 4155 specifies that the date be
+    # in the same format as the output of ctime(3), which is required
+    # by ISO C to use English day and month abbreviations.
+    buf = "From nobody %s\n" % time.ctime()
     # If this is one of our synthesised Message-IDs, insert it before
     # the other headers
     if UUID in msg_id:
