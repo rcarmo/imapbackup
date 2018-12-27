@@ -23,7 +23,7 @@ Somewhat to my surprise it was considered useful by quite a few people throughou
 
 This script should work on Python 2.5 or above without any extra dependencies whatsoever.
 
-A word of caution, though: make sure to check the date format on the resulting `mbox` files, since it is dependent on your locale. For best results, it might be best to set `LOCALE` to `en-us` on your shell before running the script.
+A word of caution, though: make sure to check the date format on the resulting `mbox` files, since it is dependent on your locale. For best results, set `LOCALE` to `en-us` on your shell before running the script.
 
 ## Contributing
 
