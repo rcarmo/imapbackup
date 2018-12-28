@@ -124,18 +124,6 @@ def string_from_file(value):
         return content.read().strip()
 
 
-class Narrator:
-    """Globally-switchable narrator to replace print statements"""
-    def __init__(self, is_on):
-        self.is_on = is_on
-
-    def __call__(self, *args):
-        if self.is_on:
-            for arg in args:
-                print arg,
-            print
-
-
 
 
 def download_messages(server, filename, messages, config):
