@@ -29,7 +29,7 @@ This script should work on Python 2.5 or above without any extra dependencies wh
 
 I am accepting pull requests, but bear in mind that one of the goals of this script is to run on _older_ Python versions, so as to save sysadmins stuck in the Dark Ages the trouble of installing a newer Python (much to my own amazement, this was originally written in Python 2.3).
 
-I would be delighted to make it PEP8 compliant, bring it fully up to date with Python 2.7/3.4, etc., and have considered adding multi-threading/multiprocessing to speed it up, but time is short enough as it is. If you feel up to the task just send me a pull request with a "new" main script with the target Python version as part of its name - something like `imapbackup27.py`, etc.
+I would be delighted to bring it fully up to date with Python 2.7.x/3.x, etc., and have considered adding multi-threading/multiprocessing to speed it up, but time is short enough as it is. If you feel up to the task just send me a pull request with a "new" main script with the target Python version as part of its name - something like `imapbackup27.py`, etc.
 
 # Disclaimer
 
