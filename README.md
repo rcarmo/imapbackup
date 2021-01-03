@@ -23,13 +23,13 @@ Somewhat to my surprise it was considered useful by quite a few people throughou
 
 ## Requirements
 
-This script should work on Python 2.5 or above without any extra dependencies whatsoever.
+This script should work on Python 2.5 or above without any extra dependencies whatsoever. It _does not_ work with Python 3 (needs refactoring, see below):
 
 ## Contributing
 
-I am accepting pull requests, but bear in mind that one of the goals of this script is to run on _older_ Python versions, so as to save sysadmins stuck in the Dark Ages the trouble of installing a newer Python (much to my own amazement, this was originally written in Python 2.3).
+I am accepting pull requests, but bear in mind that one of the original goals of this script was to run on _older_ Python versions, so as to save sysadmins stuck in the Dark Ages the trouble of installing a newer Python (much to my own amazement, this was originally written in Python 2.3).
 
-I would be delighted to bring it fully up to date with Python 2.7.x/3.x, etc., and have considered adding multi-threading/multiprocessing to speed it up, but time is short enough as it is. If you feel up to the task just send me a pull request with a "new" main script with the target Python version as part of its name - something like `imapbackup27.py`, etc.
+I would be delighted to bring it fully up to date with Python 2.7.x/3.x, etc., and have considered adding multi-threading/multiprocessing to speed it up, but time is short enough as it is. If you feel up to the task just send me a pull request with a "new" main script with the target Python version as part of its name - something like `imapbackup27.py`, `imapbackup39.py`, etc.
 
 # Disclaimer
 
