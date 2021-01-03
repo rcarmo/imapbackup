@@ -710,8 +710,7 @@ def main():
         print "Disconnecting"
         server.logout()
     except socket.error, e:
-        (err, desc) = e
-        print "ERROR: %s %s" % (err, desc)
+        print "ERROR:", e
         sys.exit(4)
     except imaplib.IMAP4.error, e:
         print "ERROR:", e
