@@ -357,7 +357,7 @@ def parse_string_list(row):
 
 
 def parse_list(row):
-    """Prases response of LIST command into a list"""
+    """Parses response of LIST command into a list"""
     row = row.strip()
     paren_list, row = parse_paren_list(row)
     string_list = parse_string_list(row)
