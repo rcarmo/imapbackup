@@ -48,7 +48,6 @@ import os
 import gc
 import sys
 import time
-import platform
 import getopt
 import mailbox
 import imaplib
