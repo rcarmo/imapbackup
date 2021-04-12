@@ -18,12 +18,13 @@ Somewhat to my surprise it was considered useful by quite a few people throughou
 * Does _incremental_ copying (i.e., tries very hard to not copy messages twice).
 * Tries to do everything as safely as possible (only performs read operations on IMAP).
 * Generates `mbox` formatted files that can be imported into Mail.app (just choose "Other" on the import dialog).
-* Optionally compresses the result files on the fly (and can append to them).
+* Optionally compresses the result files on the fly (and can append to them). Only available in Python 2.x
 * Is completely and utterly free (distributed under the MIT license).
 
 ## Requirements
 
-This script should work on Python 2.5 or above without any extra dependencies whatsoever. It _does not_ work with Python 3 (needs refactoring, see below):
+Python 2.x : The script imapbackup.py should work on Python 2.5 or above without any extra dependencies whatsoever. 
+Python 3.x : The script imapbackup38.py requires on python 3.8 and above.
 
 ## Contributing
 
