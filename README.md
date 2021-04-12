@@ -23,8 +23,8 @@ Somewhat to my surprise it was considered useful by quite a few people throughou
 
 ## Requirements
 
-Python 2.x : The script imapbackup.py should work on Python 2.5 or above without any extra dependencies whatsoever. 
-Python 3.x : The script imapbackup38.py requires on python 3.8 and above.
+Python 2.x : `imapbackup.py` should work on Python 2.5 or any other 2.x version without any extra dependencies whatsoever. 
+Python 3.x : `imapbackup38.py` requires python 3.8 and above.
 
 ## Contributing
 
