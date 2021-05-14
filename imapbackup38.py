@@ -55,8 +55,6 @@ import socket
 import re
 import hashlib
 
-from six import string_types
-
 class SkipFolderException(Exception):
     """Indicates aborting processing of current folder, continue with next folder."""
     pass
@@ -123,7 +121,7 @@ def string_from_file(value):
     the '@' with a '\' to treat it as a literal.
     """
 
-    assert isinstance(value, string_types)
+    assert isinstance(value, str)
 
     if not value or value[0] not in ["\\", "@"]:
         return value
