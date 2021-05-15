@@ -120,7 +120,6 @@ def string_from_file(value):
     will be treated as a path to the file to be read.  Precede
     the '@' with a '\' to treat it as a literal.
     """
-
     assert isinstance(value, str)
 
     if not value or value[0] not in ["\\", "@"]:
@@ -133,15 +132,17 @@ def string_from_file(value):
         return content.read().strip()
 
 
-def download_messages(server, filename, messages, config):
+def download_messages(server, filename, messages, overwrite, nospinner, thunderbird, basedir):
     """Download messages from folder and append to mailbox"""
 
-    if config['overwrite'] and os.path.exists(filename):
-        print ("Deleting", filename)
-        os.remove(filename)
+    fullname = os.path.join(basedir,filename)
+
+    if overwrite and os.path.exists(fullname):
+        print ("Deleting mbox: {0} at: {1}".format(filename,fullname))
+        os.remove(fullname)
     
     # Open disk file for append in binary mode
-    mbox = open(filename, 'ab')
+    mbox = open(fullname, 'ab')
 
     # the folder has already been selected by scanFolder()
 
@@ -152,7 +153,7 @@ def download_messages(server, filename, messages, config):
         return
 
     spinner = Spinner("Downloading %s new messages to %s" % (len(messages), filename),
-                      config['nospinner'])
+                      nospinner)
     total = biggest = 0
 
     # each new message
@@ -178,7 +179,7 @@ def download_messages(server, filename, messages, config):
         assert('OK' == typ)
         data_bytes = data[0][1]
         text_bytes = data_bytes.strip().replace(b'\r', b'')
-        if config['thunderbird']:
+        if thunderbird:
             # This avoids Thunderbird mistaking a line starting "From  " as the start
             # of a new message. _Might_ also apply to other mail lients - unknown
             text_bytes = text_bytes.replace(b"\nFrom ", b"\n From ")
@@ -199,21 +200,23 @@ def download_messages(server, filename, messages, config):
                                                   pretty_byte_count(biggest)))
 
 
-def scan_file(filename, overwrite, nospinner):
+def scan_file(filename, overwrite, nospinner, basedir):
     """Gets IDs of messages in the specified mbox file"""
     # file will be overwritten
     if overwrite:
         return []
     
+    fullname = os.path.join(basedir,filename)
+
     # file doesn't exist
-    if not os.path.exists(filename):
+    if not os.path.exists(fullname):
         print ("File %s: not found" % filename)
         return []
 
     spinner = Spinner("File %s" % filename, nospinner)
 
     # open the mailbox file for read
-    mbox = mailbox.mbox(filename)
+    mbox = mailbox.mbox(fullname)
 
     messages = {}
 
@@ -412,11 +415,12 @@ def print_usage():
     """Prints usage, exits"""
     #     "                                                                               "
     print ("Usage: imapbackup [OPTIONS] -s HOST -u USERNAME [-p PASSWORD]")
+    print (" -d DIR --mbox-dir=DIR         Write mbox files to directory. (defaults to cwd)")
     print (" -a --append-to-mboxes         Append new messages to mbox files. (default)")
     print (" -y --yes-overwrite-mboxes     Overwite existing mbox files instead of appending.")
     print (" -f FOLDERS --folders=FOLDERS  Specifify which folders use.  Comma separated list.")
     print (" -e --ssl                      Use SSL.  Port defaults to 993.")
-    print (" -k KEY --key=KEY              PEM private key file for SSL.  Specify cert, too.")
+    print (" -k KEY --key=KEY               PEM private key file for SSL.  Specify cert, too.")
     print (" -c CERT --cert=CERT           PEM certificate chain for SSL.  Specify key, too.")
     print ("                               Python's SSL module doesn't check the cert chain.")
     print (" -s HOST --server=HOST         Address of server, port optional, eg. mail.com:143")
@@ -427,7 +431,6 @@ def print_usage():
     print (" -t SECS --timeout=SECS        Sets socket timeout to SECS seconds.")
     print (" --thunderbird                 Create Mozilla Thunderbird compatible mailbox")
     print (" --nospinner                   Disable spinner (makes output log-friendly)")
-    print ("\nNOTE: mbox files are created in the current working directory.")
     sys.exit(2)
 
 
@@ -435,17 +438,18 @@ def process_cline():
     """Uses getopt to process command line, returns (config, warnings, errors)"""
     # read command line
     try:
-        short_args = "aynzbekt:c:s:u:p:f:"
+        short_args = "aynekt:c:s:u:p:f:d:"
         long_args = ["append-to-mboxes", "yes-overwrite-mboxes",
                      "ssl", "timeout", "keyfile=", "certfile=", "server=", "user=", "pass=",
-                     "folders=", "thunderbird", "nospinner"]
+                     "folders=", "thunderbird", "nospinner", "mbox-dir="]
         opts, extraargs = getopt.getopt(sys.argv[1:], short_args, long_args)
     except getopt.GetoptError:
         print_usage()
 
     warnings = []
     config = {'overwrite': False, 'usessl': False,
-              'thunderbird': False, 'nospinner': False}
+              'thunderbird': False, 'nospinner': False,
+              'basedir': "."}
     errors = []
 
     # empty command line
@@ -454,7 +458,9 @@ def process_cline():
 
     # process each command line option, save in config
     for option, value in opts:
-        if option in ("-a", "--append-to-mboxes"):
+        if option in ("-d", "--mbox-dir"):
+            config['basedir'] = value
+        elif option in ("-a", "--append-to-mboxes"):
             config['overwrite'] = False
         elif option in ("-y", "--yes-overwrite-mboxes"):
             warnings.append("Existing mbox files will be overwritten!")
@@ -624,14 +630,28 @@ def connect_and_login(config):
     return server
 
 
-def create_folder_structure(names):
+
+def create_basedir(basedir):
+    """ Create the base directory on disk """
+    if os.path.isdir(basedir):
+        return
+
+    try:
+        os.makedirs(basedir)
+    except OSError as e:
+        raise
+
+
+
+def create_folder_structure(names,basedir):
     """ Create the folder structure on disk """
     for imap_foldername, filename in sorted(names):
         disk_foldername = os.path.split(filename)[0]
         if disk_foldername:
             try:
-                # print "*** mkdir:", disk_foldername  # *DEBUG
-                os.mkdir(disk_foldername)
+                # print "*** makedirs:", disk_foldername  # *DEBUG
+                disk_path = os.path.join(basedir,disk_foldername)
+                os.makedirs(disk_path)
             except OSError as e:
                 if e.errno != 17:
                     raise
@@ -650,17 +670,25 @@ def main():
                         for i in dirs]
             names = list(filter(lambda x: x[0] in dirs, names))
 
+
+        basedir = config.get('basedir')
+        if basedir.startswith('~'):
+            basedir = os.path.expanduser(basedir)
+        else:
+            basedir = os.path.abspath(config.get('basedir'))
+        
+        create_basedir(basedir)
+
         # for n, name in enumerate(names): # *DEBUG
         #   print n, name # *DEBUG
-
-        create_folder_structure(names)
+        create_folder_structure(names,basedir)
 
         for name_pair in names:
             try:
                 foldername, filename = name_pair
                 fol_messages = scan_folder(
                     server, foldername, config['nospinner'])
-                fil_messages = scan_file(filename, config['overwrite'], config['nospinner'])
+                fil_messages = scan_file(filename, config['overwrite'], config['nospinner'], basedir)
                 new_messages = {}
                 for msg_id in fol_messages.keys():
                     if msg_id not in fil_messages:
@@ -669,7 +697,7 @@ def main():
                 # for f in new_messages:
                 #  print "%s : %s" % (f, new_messages[f])
 
-                download_messages(server, filename, new_messages, config)
+                download_messages(server, filename, new_messages, config['overwrite'], config['nospinner'], config['thunderbird'], basedir)
 
             except SkipFolderException as e:
                 print (e)
@@ -677,6 +705,7 @@ def main():
         print ("Disconnecting")
         server.logout()
     except socket.error as e:
+       
         print ("ERROR:", e)
         sys.exit(4)
     except imaplib.IMAP4.error as e:
