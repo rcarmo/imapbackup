@@ -357,30 +357,9 @@ def parse_list(row):
     return [paren_list] + string_list
 
 
-def get_hierarchy_delimiter(server):
-    """Queries the imapd for the hierarchy delimiter, eg. '.' in INBOX.Sent"""
-    # see RFC 3501 page 39 paragraph 4
-    typ, data = server.list('', '')
-    assert(typ == 'OK')
-    assert(len(data) == 1)
-
-    data_str = str(data[0], 'utf-8')
-    lst = parse_list(data_str)  # [attribs, hierarchy delimiter, root name]
-    hierarchy_delim = lst[1]
-    # NIL if there is no hierarchy
-    if 'NIL' == hierarchy_delim:
-        hierarchy_delim = '.'
-    return hierarchy_delim
-
-
 def get_names(server, thunderbird, nospinner):
     """Get list of folders, returns [(FolderName,FileName)]"""
-
     spinner = Spinner("Finding Folders", nospinner)
-
-    # Get hierarchy delimiter
-    delim = get_hierarchy_delimiter(server)
-    spinner.spin()
 
     # Get LIST of all folders
     typ, data = server.list()
@@ -389,12 +368,12 @@ def get_names(server, thunderbird, nospinner):
 
     names = []
 
-    # parse each LIST, find folder name
+    # parse each LIST entry for folder name hierarchy delimiter
     for row in data:
         row_str = str(row,'utf-8')
-        lst = parse_list(row_str)
+        lst = parse_list(row_str) # [attribs, hierarchy delimiter, root name]
+        delim = lst[1]
         foldername = lst[2]
-        #suffix = {'none': '', 'gzip': '.gz', 'bzip2': '.bz2'}[compress]
         if thunderbird:
             filename = '.sbd/'.join(foldername.split(delim))
             if filename.startswith("INBOX"):
