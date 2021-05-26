@@ -274,7 +274,7 @@ def scan_folder(server, foldername, nospinner):
             if 'OK' != typ:
                 raise SkipFolderException("FETCH %s failed: %s" % (num, data))
 
-            data_str = str(data[0][1],'utf-8') 
+            data_str = str(data[0][1], 'utf-8', 'replace')
             header = data_str.strip()
 
             # remove newlines inside Message-Id (a dumb Exchange trait)
@@ -292,7 +292,7 @@ def scan_folder(server, foldername, nospinner):
                 if 'OK' != typ:
                     raise SkipFolderException(
                         "FETCH %s failed: %s" % (num, data))
-                data_str = str(data[0][1], 'utf-8')
+                data_str = str(data[0][1], 'utf-8', 'replace')
                 header = data_str.strip()
                 header = header.replace('\r\n', '\t').encode('utf-8')
                 messages['<' + UUID + '.' +
