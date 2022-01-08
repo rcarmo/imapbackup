@@ -167,6 +167,7 @@ def download_messages(server, filename, messages, config):
     spinner = Spinner("Downloading %s new messages to %s" % (len(messages), filename),
                       config['nospinner'])
     total = biggest = 0
+    from_re = re.compile("\n(>*)From ")
 
     # each new message
     for msg_id in messages.keys():
@@ -190,6 +191,11 @@ def download_messages(server, filename, messages, config):
             # This avoids Thunderbird mistaking a line starting "From  " as the start
             # of a new message. _Might_ also apply to other mail lients - unknown
             text = text.replace("\nFrom ", "\n From ")
+        else:
+            # Perform >From quoting as described by RFC 4155 and the qmail docs.
+            # https://www.rfc-editor.org/rfc/rfc4155.txt
+            # http://qmail.org/qmail-manual-html/man5/mbox.html
+            text = from_re.sub("\n>\\1From ", text)
         mbox.write(text)
         mbox.write('\n\n')
 
