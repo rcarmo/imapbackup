@@ -398,9 +398,11 @@ def print_usage():
     print (" -d DIR --mbox-dir=DIR         Write mbox files to directory. (defaults to cwd)")
     print (" -a --append-to-mboxes         Append new messages to mbox files. (default)")
     print (" -y --yes-overwrite-mboxes     Overwite existing mbox files instead of appending.")
-    print (" -f FOLDERS --folders=FOLDERS  Specifify which folders use.  Comma separated list.")
+    print (" -f FOLDERS --folders=FOLDERS  Specify which folders to include. Comma separated list.")
+    print (" --exclude-folders=FOLDERS     Specify which folders to exclude. Comma separated list.")
+    print ("                               You cannot use both --folders and --exclude-folders.")
     print (" -e --ssl                      Use SSL.  Port defaults to 993.")
-    print (" -k KEY --key=KEY               PEM private key file for SSL.  Specify cert, too.")
+    print (" -k KEY --key=KEY              PEM private key file for SSL.  Specify cert, too.")
     print (" -c CERT --cert=CERT           PEM certificate chain for SSL.  Specify key, too.")
     print ("                               Python's SSL module doesn't check the cert chain.")
     print (" -s HOST --server=HOST         Address of server, port optional, eg. mail.com:143")
@@ -421,7 +423,7 @@ def process_cline():
         short_args = "aynekt:c:s:u:p:f:d:"
         long_args = ["append-to-mboxes", "yes-overwrite-mboxes",
                      "ssl", "timeout", "keyfile=", "certfile=", "server=", "user=", "pass=",
-                     "folders=", "thunderbird", "nospinner", "mbox-dir="]
+                     "folders=", "exclude-folders=", "thunderbird", "nospinner", "mbox-dir="]
         opts, extraargs = getopt.getopt(sys.argv[1:], short_args, long_args)
     except getopt.GetoptError:
         print_usage()
@@ -451,6 +453,8 @@ def process_cline():
             config['keyfilename'] = value
         elif option in ("-f", "--folders"):
             config['folders'] = value
+        elif option in ("--exclude-folders"):
+            config['exclude-folders'] = value
         elif option in ("-c", "--certfile"):
             config['certfilename'] = value
         elif option in ("-s", "--server"):
@@ -641,15 +645,20 @@ def main():
     """Main entry point"""
     try:
         config = get_config()
+        if config.get('folders') and config.get('exclude-folders'):
+            print("ERROR: You cannot use both --folders and --exclude-folders at the same time")
+            sys.exit(2)
         server = connect_and_login(config)
         names = get_names(server,config['thunderbird'],config['nospinner'])
+        exclude_folders = []
         if config.get('folders'):
             dirs = list(map(lambda x: x.strip(), config.get('folders').split(',')))
             if config['thunderbird']:
                 dirs = [i.replace("Inbox", "INBOX", 1) if i.startswith("Inbox") else i
                         for i in dirs]
             names = list(filter(lambda x: x[0] in dirs, names))
-
+        elif config.get('exclude-folders'):
+            exclude_folders = list(map(lambda x: x.strip(), config.get('exclude-folders').split(',')))
 
         basedir = config.get('basedir')
         if basedir.startswith('~'):
@@ -666,6 +675,11 @@ def main():
         for name_pair in names:
             try:
                 foldername, filename = name_pair
+                # Skip excluded folders
+                if foldername in exclude_folders:
+                    print(f'Excluding folder "{foldername}"')
+                    continue
+
                 fol_messages = scan_folder(
                     server, foldername, config['nospinner'])
                 fil_messages = scan_file(filename, config['overwrite'], config['nospinner'], basedir)
