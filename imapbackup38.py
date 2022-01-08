@@ -267,15 +267,29 @@ def scan_folder(server, foldername, nospinner):
             raise SkipFolderException("SELECT failed: %s" % data)
         num_msgs = int(data[0])
 
-        # each message
-        for num in range(1, num_msgs+1):
-            # Retrieve Message-Id, making sure we don't mark all messages as read
-            typ, data = server.fetch(str(num), '(BODY.PEEK[HEADER.FIELDS (MESSAGE-ID)])')
-
+        # Retrieve all Message-Id headers, making sure we don't mark all messages as read.
+        #
+        # The result is an array of result tuples with a terminating closing parenthesis
+        # after each tuple. That means that the first result is at index 0, the second at
+        # 2, third at 4, and so on.
+        #
+        # e.g.
+        # [
+        #   (b'1 (BODY[...', b'Message-Id: ...'), b')', # indices 0 and 1
+        #   (b'2 (BODY[...', b'Message-Id: ...'), b')', # indices 2 and 3
+        #   ...
+        #  ]
+        if num_msgs > 0:
+            typ, data = server.fetch(f'1:{num_msgs}', '(BODY.PEEK[HEADER.FIELDS (MESSAGE-ID)])')
             if 'OK' != typ:
-                raise SkipFolderException("FETCH %s failed: %s" % (num, data))
+                raise SkipFolderException("FETCH failed: %s" % (data))
 
-            data_str = str(data[0][1], 'utf-8', 'replace')
+        # each message
+        for i in range(0, num_msgs):
+            num = 1 + i
+
+            # Double the index because of the terminating parenthesis after each tuple.
+            data_str = str(data[2 * i][1], 'utf-8', 'replace')
             header = data_str.strip()
 
             # remove newlines inside Message-Id (a dumb Exchange trait)
@@ -288,12 +302,12 @@ def scan_folder(server, foldername, nospinner):
             except (IndexError, AttributeError):
                 # Some messages may have no Message-Id, so we'll synthesise one
                 # (this usually happens with Sent, Drafts and .Mac news)
-                typ, data = server.fetch(
+                msg_typ, msg_data = server.fetch(
                     str(num), '(BODY[HEADER.FIELDS (FROM TO CC DATE SUBJECT)])')
-                if 'OK' != typ:
+                if 'OK' != msg_typ:
                     raise SkipFolderException(
-                        "FETCH %s failed: %s" % (num, data))
-                data_str = str(data[0][1], 'utf-8', 'replace')
+                        "FETCH %s failed: %s" % (num, msg_data))
+                data_str = str(msg_data[0][1], 'utf-8', 'replace')
                 header = data_str.strip()
                 header = header.replace('\r\n', '\t').encode('utf-8')
                 messages['<' + UUID + '.' +
