@@ -5,6 +5,17 @@ imapbackup
 
 A Python script for creating full backups of IMAP mailboxes
 
+## Installation
+
+Installation is provided for imapbackup38 (requires python3.8 and above)
+
+```
+pip install .
+
+imapbackup38 -s IMAP_SERVER  -u USER_NAME -d TARGET_DIR [OPTIONS]
+
+```
+
 ## Background
 
 This was first published around 2007 (probably earlier) [on my personal site][tao], and it was originally developed to work around the then rather limited (ok, inconsistent) Mac OS X Mail.app functionality and allow me to back up my old mailboxes in a fully standard `mbox` format (well, at least as much as `mbox` can be considered a standard...).
@@ -24,6 +35,7 @@ Somewhat to my surprise it was considered useful by quite a few people throughou
 ## Requirements
 
 Python 2.x : `imapbackup.py` should work on Python 2.5 or any other 2.x version without any extra dependencies whatsoever. 
+
 Python 3.x : `imapbackup38.py` requires python 3.8 and above.
 
 ## Contributing

@@ -3,6 +3,9 @@
 # C extensions
 *.so
 
+# virtual environment
+.venv
+
 # Packages
 *.egg
 *.egg-info
@@ -37,3 +40,4 @@ nosetests.xml
 
 # Things that might show up during testing
 *.mbox
+
