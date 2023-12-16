@@ -62,10 +62,13 @@ import sqlite3
 
 from dataclasses import dataclass
 
-SQL_CREATE_MESSAGE_TABLE = "CREATE TABLE IF NOT EXISTS messages (message_id TEXT, mailbox TEXT)"
-SQL_CREATE_MESSAGE_INDEX = "CREATE INDEX IF NOT EXISTS idx_ids ON messages (mailbox)"
-SQL_SELECT_MESSAGE_IDS = "SELECT message_id from messages WHERE mailbox = ?"
-SQL_INSERT_MESSAGE_ID = "INSERT into messages (message_id, mailbox) VALUES (?, ?)"
+# constants used for sqlite3
+SQLITE3_DATABASE_NAME = "message_ids.db"
+SQL_CREATE_MESSAGE_TABLE_IF_MISSING = "CREATE TABLE IF NOT EXISTS messages (message_id TEXT, mailbox TEXT)"
+SQL_CREATE_MESSAGE_INDEX_IF_MISSING = "CREATE INDEX IF NOT EXISTS idx_ids ON messages (mailbox)"
+SQL_SELECT_MESSAGE_IDS = "SELECT message_id FROM messages WHERE mailbox = ?"
+SQL_INSERT_MESSAGE_ID = "INSERT INTO messages (message_id, mailbox) VALUES (?, ?)"
+SQL_DELETE_MESSAGE_IDS = "DELETE FROM messages WHERE mailbox = ?"
 
 
 class SkipFolderException(Exception):
@@ -146,7 +149,7 @@ def string_from_file(value):
 
 @dataclass
 class DownloadOptions:
-    """Options provided from the command line"""
+    """Some options provided from the command line"""
     basedir: str
     overwrite: bool
     nospinner: bool
@@ -155,12 +158,13 @@ class DownloadOptions:
 
 def download_messages(server : imaplib.IMAP4, filename : str, message_ids : dict , opts : DownloadOptions):
     """ 
-    Download messages from folder on server and append to mailbox file on disk 
+    Download messages from folder on server and append to mailbox file on disk.
+    
+    Reset mailbox and database, if overwrite mode is set.
     
     Notes: 
     
-    - TODO: Store message ids in database
-    - Delete existing database, if overwrite mode
+    - TODO:
     - Process in chunks of p messages or max q bytes
     - Close mailbox file and commit database after each chunk
      
@@ -168,31 +172,30 @@ def download_messages(server : imaplib.IMAP4, filename : str, message_ids : dict
 
     fullname = os.path.join(opts.basedir, filename)
     
-    dbfullname = os.path.join(opts.basedir, "message_ids.db")
+    dbfullname = os.path.join(opts.basedir, SQLITE3_DATABASE_NAME)
+    
+    # panic!    
+    if not os.path.exists(dbfullname):
+        print(f"PANIC: {filename}: database does not exist")
+        return
+    
+    
+    # overwrite mode: reset database
+    if opts.overwrite :
+        print(f"DOWNLOAD: {filename}: overwrite: resetting database")
+        connection = sqlite3.connect(dbfullname)
+        cursor = connection.cursor()
+        cursor.execute(SQL_DELETE_MESSAGE_IDS,(filename,))
+        cursor.close()
+        connection.close()
 
+    
+    # overwrite mode: delete mailbox and reset database
     if opts.overwrite and os.path.exists(fullname):
-        print(f"Deleting mbox: {filename} at: {fullname}")
+        print(f"DOWNLOAD: {filename}: overwrite: resetting mailbox")
         os.remove(fullname)
 
-    # TODO: Open database and initialize db if required
-    if opts.overwrite and os.path.exists(dbfullname):
-        print(f"Deleting database at: {dbfullname}")
-        os.remove(dbfullname)
-
-
-    initdb = not os.path.exists(dbfullname)
     
-    connection = sqlite3.connect(dbfullname)
-    
-    if initdb is True:
-        print("INFO: Initializing database file")
-        cursor = connection.cursor()
-        cursor.execute(SQL_CREATE_MESSAGE_TABLE)
-        cursor.execute(SQL_CREATE_MESSAGE_INDEX)
-        cursor.close()
-    
-    connection.close()
-        
     
     # TODO: Process all messages in chunks...
     
@@ -272,34 +275,36 @@ def download_messages(server : imaplib.IMAP4, filename : str, message_ids : dict
     )
 
 
-def scan_message_id_db(filename: str, opts : DownloadOptions) -> dict:
-    """Read IDs of messages stored in the local mailbox file from the database on disk
+def scan_message_id_db(mailboxname: str, opts : DownloadOptions) -> dict:
+    """ Read IDs of messages stored in the local mailbox file from the database on disk
     
     Return dict of msg_id:msg_id or None on errors
     
     """
-    
-    fullname = os.path.join(opts.basedir, filename)
-    
-    dbfullname = os.path.join(opts.basedir, "message_ids.db")
-
-
-    # database file hasn't been created yet
-    if not os.path.exists(dbfullname):
-        print(f"INFO: Database file {dbfullname} not found. To be initialized")
+    # no ids if overwrite mode has been requested
+    if opts.overwrite:
+        print(f"{mailboxname}: DB: message ids: 0 (overwrite mode)")
         return {}
-
-    spinner = Spinner(f"{filename}: DB: reading message ids", opts.nospinner)
-
-    message_ids = {}
-
-    connection = sqlite3.connect(dbfullname)
     
+    dbfullname = os.path.join(opts.basedir, SQLITE3_DATABASE_NAME)
+
+    # no ids if database file hasn't been created yet...
+    if not os.path.exists(dbfullname):
+        print(f"{mailboxname}: DB: message ids: 0 (db not found. will be initialized)")
+        return {}
+    
+    
+    spinner = Spinner(f"{mailboxname}: DB: reading message ids", opts.nospinner)    
+
+    # read message ids
+    #
+    # NOTE: Notice the comma at the end of filename. 
+    #       Otherwise, each character will be treated as an individual argument
+    message_ids = {}
+    connection = sqlite3.connect(dbfullname)
     cursor = connection.cursor()
     
-    # NOTE: Notice the comma at the end of filename. 
-    # Otherwise, each character will be treated as an individual argument
-    for ritem in cursor.execute(SQL_SELECT_MESSAGE_IDS,(filename,)):
+    for ritem in cursor.execute(SQL_SELECT_MESSAGE_IDS,(mailboxname,)):
         message_ids[ritem[0]] = ritem[0]
     
     cursor.close()
@@ -307,24 +312,24 @@ def scan_message_id_db(filename: str, opts : DownloadOptions) -> dict:
         
     spinner.stop()
     print("")
-    print(f"{filename}: DB: message ids: {len(message_ids.keys())}")
+    print(f"{mailboxname}: DB: message ids: {len(message_ids.keys())}")
     
     return message_ids
 
-def scan_mailbox_file(filename : str, opts : DownloadOptions) -> dict:
+def scan_mailbox_file(mailboxname : str, opts : DownloadOptions) -> dict:
     """Read IDs of messages in the local mailbox file on disk
     
     Return dict of msg_id:msg_id or None on errors
     """
     
-    fullname = os.path.join(opts.basedir, filename)
+    fullname = os.path.join(opts.basedir, mailboxname)
 
     # file hasn't been created yet...
     if not os.path.exists(fullname):
-        print(f"INFO: Mailbox file {filename} to be initialized")
+        print(f"INFO: Mailbox file {mailboxname} to be initialized")
         return {}
 
-    spinner = Spinner(f"File {filename}", opts.nospinner)
+    spinner = Spinner(f"File {mailboxname}", opts.nospinner)
 
     messages = {}
 
@@ -343,7 +348,7 @@ def scan_mailbox_file(filename : str, opts : DownloadOptions) -> dict:
         except KeyError:
             # No message ID was found. Warn the user and move on
             print("")
-            print(f"WARNING: Message #{i} in {filename}")
+            print(f"WARNING: Message #{i} in {mailboxname}")
             print(f"has no {HEADER_MESSAGE_ID} header.")
 
         header = BLANKS_RE.sub(" ", header.strip())
@@ -355,7 +360,7 @@ def scan_mailbox_file(filename : str, opts : DownloadOptions) -> dict:
         except AttributeError:
             # Message-Id was found but could somehow not be parsed by regexp
             # (highly bloody unlikely)
-            print(f"WARNING: Message #{i} in {filename}")
+            print(f"WARNING: Message #{i} in {mailboxname}")
             print(f"has a malformed {HEADER_MESSAGE_ID} header.")
         spinner.spin()
         i = i + 1
@@ -369,12 +374,12 @@ def scan_mailbox_file(filename : str, opts : DownloadOptions) -> dict:
     return messages
 
 
-def scan_imap_folder(server : imaplib.IMAP4, foldername : str, nospinner : bool):
+def scan_imap_folder(server : imaplib.IMAP4, imapfoldername : str, nospinner : bool):
     """Gets IDs of messages in the specified imapfolder, returns id:num dict"""
     messages = {}
-    spinner = Spinner(f'{foldername}: IMAP: reading message ids', nospinner)
+    spinner = Spinner(f'{imapfoldername}: IMAP: reading message ids', nospinner)
     try:
-        typ, data = server.select(foldername, readonly=True)
+        typ, data = server.select(imapfoldername, readonly=True)
         if "OK" != typ:
             raise SkipFolderException(f"SELECT failed: {data}")
         num_msgs = int(data[0])
@@ -430,13 +435,10 @@ def scan_imap_folder(server : imaplib.IMAP4, foldername : str, nospinner : bool)
             spinner.spin()
     finally:
         spinner.stop()
-        # print(
-        #     ":",
-        # )
 
     # done
     print("")
-    print(f"{foldername}: IMAP: message ids: {len(messages.keys())}")
+    print(f"{imapfoldername}: IMAP: message ids: {len(messages.keys())}")
     return messages
 
 
@@ -827,6 +829,22 @@ def create_folder_structure(names, basedir):
                     raise
 
 
+def create_database(basedir : str):
+    """ Create and initialize the message database"""    
+    dbfullname = os.path.join(basedir, SQLITE3_DATABASE_NAME)    
+
+    if os.path.exists(dbfullname):
+        return
+    
+    print("INIT: initializing database")
+    connection = sqlite3.connect(dbfullname)
+    cursor = connection.cursor()
+    cursor.execute(SQL_CREATE_MESSAGE_TABLE_IF_MISSING)
+    cursor.execute(SQL_CREATE_MESSAGE_INDEX_IF_MISSING)
+    cursor.close()
+    connection.close()
+
+
 def main():
     """Main entry point"""
     try:
@@ -871,34 +889,29 @@ def main():
         # for n, name in enumerate(names): # *DEBUG
         #   print n, name # *DEBUG
         create_folder_structure(names, opts.basedir)
+        
+        # create and initialize
+        create_database(basedir)
 
         for name_pair in names:
             try:
                 foldername, filename = name_pair
                 # Skip excluded folders
                 if foldername in exclude_folders:
-                    print(f'Excluding folder "{foldername}"')
+                    print(f'{foldername}: FILTER: folder will be excluded')
                     continue
                 
                 fol_messages = scan_imap_folder(server, foldername, opts.nospinner)
                 
                 # TODO: Handle, if scan has failed
-                
-                fil_messages = {}
-                
-                if not opts.overwrite:
-                    #fil_messages = scan_mailbox_file(filename, opts)
-                
-                    # TODO: Scan db instead of mailbox file for message ids
-                    fil_messages = scan_message_id_db(filename, opts)
+                            
+                fil_messages = scan_message_id_db(filename, opts)
                     
-                    # TODO: Handle, if scan has failed
-                
+    
                 new_messages = {}
                 for msg_id in fol_messages.keys():
                     if msg_id not in fil_messages:
                         new_messages[msg_id] = fol_messages[msg_id]
-
 
                 download_messages(
                     server,
