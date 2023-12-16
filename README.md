@@ -32,6 +32,10 @@ Somewhat to my surprise it was considered useful by quite a few people throughou
 * Optionally compresses the result files on the fly (and can append to them). Only available in Python 2.x
 * Is completely and utterly free (distributed under the MIT license).
 
+## Features only in Python3  
+
+* Track message IDs for every single folder in a dedicated sqlite3 database instead of reading them from the mailbox files.
+
 ## Requirements
 
 Python 2.x : `imapbackup.py` should work on Python 2.5 or any other 2.x version without any extra dependencies whatsoever. 

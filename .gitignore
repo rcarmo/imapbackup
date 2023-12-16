@@ -39,5 +39,7 @@ nosetests.xml
 .pydevproject
 
 # Things that might show up during testing
+.data
 *.mbox
+
 
