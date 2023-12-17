@@ -37,6 +37,7 @@ nosetests.xml
 .mr.developer.cfg
 .project
 .pydevproject
+.vscode
 
 # Things that might show up during testing
 .data
