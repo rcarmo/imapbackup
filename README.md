@@ -34,7 +34,8 @@ Somewhat to my surprise it was considered useful by quite a few people throughou
 
 ## Features only in Python3  
 
-* Track message IDs for every single folder in a dedicated sqlite3 database instead of reading them from the mailbox files.
+* Track message IDs for every single folder in a dedicated sqlite3 database (faster) instead of reading them from the mailbox files.
+* Write logfile. Default loglevel is INFO. Set command line option `--DEBUG` for loglevel DEBUG. 
 
 ## Requirements
 
