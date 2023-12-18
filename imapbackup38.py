@@ -159,34 +159,34 @@ class DownloadOptions:
 
 
 def download_messages(server : imaplib.IMAP4, imapfolder : str, mailboxfile: str, message_ids : dict , opts : DownloadOptions):
-    """ 
+    """
     Download messages from folder on server and append to mailbox file on disk.
-    
+
     Reset mailbox and database, if overwrite mode is set.
-    
+
     Throw SkipFolderException on errors
-    
+
     in: imapfolder as known the IMAP server
     in: mailboxfile on disk
     in: message_ids : dict[message_id:fetch_id]
-    Notes: 
-    
+    Notes:
+
     - TODO:
     - Process in chunks of p messages or max q bytes
     - Close mailbox file and commit database after each chunk
-     
+
     """
 
     fullname = os.path.join(opts.basedir, mailboxfile)
-    
+
     dbfullname = os.path.join(opts.basedir, SQLITE3_DATABASE_NAME)
-    
-    # panic!    
+
+    # panic!
     if not os.path.exists(dbfullname):
         msg=f"{imapfolder}: version database does not exist"
         logging.error(msg)
         raise SkipFolderException(msg)
-    
+
     # overwrite mode: reset database
     if opts.overwrite :
         msg=f"{imapfolder} : (download) : overwrite: resetting database"
@@ -205,7 +205,7 @@ def download_messages(server : imaplib.IMAP4, imapfolder : str, mailboxfile: str
             if connection is not None:
                 connection.close()
 
-    
+
     # overwrite mode: delete mailbox and reset database
     if opts.overwrite and os.path.exists(fullname):
         msg=f"{imapfolder} : (download) : overwrite: resetting mailbox"
@@ -218,23 +218,23 @@ def download_messages(server : imaplib.IMAP4, imapfolder : str, mailboxfile: str
             raise SkipFolderException(ex.args)
 
     # TODO: Process all messages in chunks...
-    
+
     msg=f"{imapfolder} : (download) : download messages: {len(message_ids)}"
     logging.info(msg)
     print(msg)
-                
+
     connection = None
     try:
         connection = sqlite3.connect(dbfullname)
         cursor = connection.cursor()
-    
+
         # Open disk file for append in binary mode
         with open(fullname, "ab") as mboxfile:
 
             # nothing to do. create mbox and leave
             if len(message_ids) == 0:
                 return
-            
+
             msg=f"{imapfolder} : (download) : downloading"
             spinner = Spinner(
                 msg, opts.nospinner
@@ -306,9 +306,9 @@ def download_messages(server : imaplib.IMAP4, imapfolder : str, mailboxfile: str
 
 def scan_message_id_db(imapfolder: str, opts : DownloadOptions) -> dict:
     """ Read IDs of messages for the given imap folder from the local database on disk
-    
+
     Return dict of msg_id:msg_id or throw SkipFolderException on error
-    
+
     The dict will be empty when in owerwrite mode or the database does not exist
     """
     # no ids if overwrite mode has been requested
@@ -316,7 +316,7 @@ def scan_message_id_db(imapfolder: str, opts : DownloadOptions) -> dict:
         msg=f"{imapfolder} : (db) : message ids: 0 (overwrite mode)"
         logging.info(msg)
         return {}
-    
+
     dbfullname = os.path.join(opts.basedir, SQLITE3_DATABASE_NAME)
 
     # no ids if database file hasn't been created yet...
@@ -324,24 +324,23 @@ def scan_message_id_db(imapfolder: str, opts : DownloadOptions) -> dict:
         msg=f"{imapfolder} : (db) : message ids: 0 (db not found. will be initialized)"
         logging.info(msg)
         return {}
-    
-    
-    spinner = Spinner(f"{imapfolder} : (db) : reading message ids", opts.nospinner)    
+
+    spinner = Spinner(f"{imapfolder} : (db) : reading message ids", opts.nospinner)
 
     # read message ids
     #
-    # NOTE: Notice the comma at the end of filename. 
+    # NOTE: Notice the comma at the end of filename.
     #       Otherwise, each character will be treated as an individual argument
     message_ids = {}
-    
+
     try:
         connection = None
         connection = sqlite3.connect(dbfullname)
         cursor = connection.cursor()
-        
+
         for ritem in cursor.execute(SQL_SELECT_MESSAGE_IDS,(imapfolder,)):
             message_ids[ritem[0]] = ritem[0]
-        
+
         cursor.close()
     except Exception as ex:
         msg=f"{imapfolder} : (db) : {ex}"
@@ -351,9 +350,9 @@ def scan_message_id_db(imapfolder: str, opts : DownloadOptions) -> dict:
     finally:
         if connection is not None:
             connection.close()
-        
+
     spinner.stop()
-    
+
     # done
     logging.info(f"{imapfolder} : (db) : found message ids: {len(message_ids.keys())}")
     print(f": {len(message_ids.keys())}")
@@ -361,10 +360,10 @@ def scan_message_id_db(imapfolder: str, opts : DownloadOptions) -> dict:
 
 def scan_mailbox_file(mailboxname : str, opts : DownloadOptions) -> dict:
     """Read IDs of messages in the local mailbox file on disk
-    
+
     Return dict of msg_id:msg_id or None on errors
     """
-    
+
     fullname = os.path.join(opts.basedir, mailboxname)
 
     # file hasn't been created yet...
@@ -414,7 +413,7 @@ def scan_mailbox_file(mailboxname : str, opts : DownloadOptions) -> dict:
 
     mbox.close()
     spinner.stop()
-    
+
     # done
     logging.info(f"{mailboxname} : (file) : found message ids: {len(messages.keys())}")
     print(f": {len(messages.keys())} messages")
@@ -422,17 +421,17 @@ def scan_mailbox_file(mailboxname : str, opts : DownloadOptions) -> dict:
 
 def sanitize_imap_folder_name(imapfolder: str) -> str:
     """ Add double quotes to imap folder names with SPACEs
-    
+
     in: imapfoldername
     out sanitized folder name
-    
+
     Examples:
     Trash -> Trash
-    Sent Items -> "Sent Items" 
+    Sent Items -> "Sent Items"
     """
     if imapfolder.find(" ") < 0:
         return imapfolder
-    
+
     if imapfolder[0] != '"':
         imapfolder = '"' + imapfolder
     if imapfolder[-1] != '"':
@@ -475,7 +474,7 @@ def scan_imap_folder(server : imaplib.IMAP4, imapfolder : str, nospinner : bool)
                 msg=f"{imapfolder} : (imap) : FETCH failed: {data}"
                 logging.error(msg)
                 raise SkipFolderException(msg)
-                
+
         # each message
         for i in range(0, num_msgs):
             num = 1 + i
@@ -501,7 +500,7 @@ def scan_imap_folder(server : imaplib.IMAP4, imapfolder : str, nospinner : bool)
                     msg=f"{imapfolder} : (imap) : FETCH {num} failed: {msg_data}"
                     logging.error(msg)
                     raise SkipFolderException(msg)
-                    
+
                 data_str = str(msg_data[0][1], "utf-8", "replace")
                 header = data_str.strip()
                 header = header.replace("\r\n", "\t").encode("utf-8")
@@ -583,7 +582,7 @@ def imap_list_folders(server, thunderbird, nospinner):
     for row in data:
         row_str = str(row, "utf-8")
         logging.debug(f"parse_list: {row_str}")
-    
+
         lst = parse_list_entry(row_str)  # [attribs, hierarchy delimiter, root name]
         delim = lst[1]
         foldername = lst[2]
@@ -593,7 +592,7 @@ def imap_list_folders(server, thunderbird, nospinner):
                 filename = filename.replace("INBOX", "Inbox")
         else:
             filename = ".".join(foldername.split(delim)) + ".mbox"
-        
+
         logging.debug(f"list folders: foldername={foldername}, filename={filename}")
         names.append((foldername, filename))
 
@@ -838,7 +837,7 @@ def imap_connect_and_login(config) -> ( imaplib.IMAP4 | imaplib.IMAP4_SSL):
         msg=f'Logging in to {config["server"]} as {config["user"]}'
         logging.info(msg)
         print(msg)
-        
+
         # either both set or both unset
         assert not ("keyfilename" in config) ^ ("certfilename" in config)
         if config["timeout"]:
@@ -870,7 +869,7 @@ def imap_connect_and_login(config) -> ( imaplib.IMAP4 | imaplib.IMAP4_SSL):
         server.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
 
         server.login(config["user"], config["pass"])
-        
+
     except socket.gaierror as e:
         (err, desc) = e
         msg = f"problem looking up server '{config['server']}' ({err} {desc})"
@@ -890,7 +889,7 @@ def imap_connect_and_login(config) -> ( imaplib.IMAP4 | imaplib.IMAP4_SSL):
             msg=f"could not connect to '{config['server']}' ({e})"
             logging.error(msg) 
             print(f"ERROR: {msg}")
-            
+
         sys.exit(4)
 
     return server
@@ -908,7 +907,7 @@ def create_basedir(basedir : str) -> bool:
         logging.error(ex)
         print("ERROR: ", ex)
         return False
-    
+
     return True
 
 
@@ -931,12 +930,12 @@ def create_folder_structure(names: list, basedir: str) -> bool:
 def create_database(basedir : str) -> bool:
     """ Create and initialize the message database
     Return false on errors
-    """    
-    dbfullname = os.path.join(basedir, SQLITE3_DATABASE_NAME)    
+    """
+    dbfullname = os.path.join(basedir, SQLITE3_DATABASE_NAME)
 
     if os.path.exists(dbfullname):
         return True
-    
+
     try:
         logging.debug("INIT: initializing database")
         connection = None
@@ -964,14 +963,14 @@ def main():
                 "ERROR: You cannot use both --folders and --exclude-folders at the same time"
             )
             sys.exit(2)
-        
-        # create basedir and setup logging    
+
+        # create basedir and setup logging
         basedir = config.get("basedir")
         if basedir.startswith("~"):
             basedir = os.path.expanduser(basedir)
         else:
             basedir = os.path.abspath(basedir)
-        
+
         if not create_basedir(basedir):
             print(f"ERROR: Failed to verify/create base directory: {basedir}")
             sys.exit(-1)
@@ -982,7 +981,9 @@ def main():
                             datefmt='%Y-%m-%d %I-%M-%S %p',
                             level=config["loglevel"]
                             )
-        
+
+        print(f"Logfile: {logfile}")
+
         server = imap_connect_and_login(config)
         names = imap_list_folders(server, config["thunderbird"], config["nospinner"])
         exclude_folders = []
@@ -999,12 +1000,12 @@ def main():
                 map(lambda x: x.strip(), config.get("exclude-folders").split(","))
             )
 
-       
+
         opts = DownloadOptions(
                 basedir, config["overwrite"], config["nospinner"], config["thunderbird"]
             )
 
-        
+
         if not create_folder_structure(names, opts.basedir):
             msg = f"Failed to verify/create folder strcucture in: {opts.basedir} for names: {names}"
             logging.error(msg)
@@ -1026,14 +1027,14 @@ def main():
                     logging.info(msg)
                     print(msg)
                     continue
-                
+
                 # read remote message ids. throws SkipFolderException on error
                 fol_messages = scan_imap_folder(server, imapfolder, opts.nospinner)
-                
-                # read local message ids. throws SkipFolderException on error          
+
+                # read local message ids. throws SkipFolderException on error
                 fil_messages = scan_message_id_db(imapfolder, opts)
-                    
-    
+
+
                 new_messages = {}
                 for msg_id in fol_messages.keys():
                     if msg_id not in fil_messages:
