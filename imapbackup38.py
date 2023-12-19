@@ -569,7 +569,7 @@ def parse_list_entry(row):
 
 def imap_list_folders(server, thunderbird, nospinner):
     """Get list of folders, returns [(FolderName,FileName)]"""
-    spinner = Spinner("List Folders", nospinner)
+    spinner = Spinner("Folders : (list)", nospinner)
 
     # Get LIST of all folders
     typ, data = server.list()
@@ -598,7 +598,9 @@ def imap_list_folders(server, thunderbird, nospinner):
 
     # done
     spinner.stop()
-    print(f": {len(names)} folders")
+    msg=f": {len(names)} folders"
+    print(msg)
+    logging.info(f"Folders {msg}")
     return names
 
 
@@ -834,7 +836,7 @@ def get_config() -> dict:
 def imap_connect_and_login(config) -> ( imaplib.IMAP4 | imaplib.IMAP4_SSL):
     """Connects to the server and logs in.  Returns IMAP4 object."""
     try:
-        msg=f'Logging in to {config["server"]} as {config["user"]}'
+        msg=f'Login : (imap) : {config["server"]} as {config["user"]}'
         logging.info(msg)
         print(msg)
 
@@ -844,11 +846,11 @@ def imap_connect_and_login(config) -> ( imaplib.IMAP4 | imaplib.IMAP4_SSL):
             socket.setdefaulttimeout(config["timeout"])
 
         if config["usessl"] and "keyfilename" in config:
-            msg=f"Connecting to {config['server']} TCP port {config['port']},"
+            msg=f"Login : (imap) : Connecting to {config['server']} TCP port {config['port']},"
             logging.info(msg)
-            msg=f"SSL, key from {config['keyfilename']},"
+            msg=f"Login : (imap) : SSL, key from {config['keyfilename']},"
             logging.info(msg)
-            msg=f"cert from {config['certfilename']} "
+            msg=f"Login : (imap) : cert from {config['certfilename']} "
             logging.info(msg)
             server = imaplib.IMAP4_SSL(
                 config["server"],
@@ -857,11 +859,11 @@ def imap_connect_and_login(config) -> ( imaplib.IMAP4 | imaplib.IMAP4_SSL):
                 config["certfilename"],
             )
         elif config["usessl"]:
-            msg=f'Connecting to {config["server"]} TCP port {config["port"]}, SSL'
+            msg=f'Login : (imap) : Connecting to {config["server"]} TCP port {config["port"]}, SSL'
             logging.info(msg)
             server = imaplib.IMAP4_SSL(config["server"], config["port"])
         else:
-            msg=f'Connecting to {config["server"]} TCP port {config["port"]}'
+            msg=f'Login : (imap) : Connecting to {config["server"]} TCP port {config["port"]}'
             logging.info(msg)
             server = imaplib.IMAP4(config["server"], config["port"])
 
@@ -872,21 +874,21 @@ def imap_connect_and_login(config) -> ( imaplib.IMAP4 | imaplib.IMAP4_SSL):
 
     except socket.gaierror as e:
         (err, desc) = e
-        msg = f"problem looking up server '{config['server']}' ({err} {desc})"
+        msg = f"Login : (imap) : problem looking up server '{config['server']}' ({err} {desc})"
         logging.error(msg)
         print(f"ERROR: {msg}")
         sys.exit(3)
     except socket.error as e:
         if str(e) == "SSL_CTX_use_PrivateKey_file error":
-            msg = f"error reading private key file '{config['keyfilename']}'"
+            msg = f"Login : (imap) : error reading private key file '{config['keyfilename']}'"
             logging.error(msg)
             print(f"ERROR: {msg}")
         elif str(e) == "SSL_CTX_use_certificate_chain_file error":
-            msg = f"error reading certificate chain file '{config['keyfilename']}'"
+            msg = f"Login : (imap) : error reading certificate chain file '{config['keyfilename']}'"
             logging.error(msg) 
             print(f"ERROR: {msg}")
         else:
-            msg=f"could not connect to '{config['server']}' ({e})"
+            msg=f"Login : (imap) : could not connect to '{config['server']}' ({e})"
             logging.error(msg) 
             print(f"ERROR: {msg}")
 
@@ -995,17 +997,32 @@ def main():
                     for i in dirs
                 ]
             names = list(filter(lambda x: x[0] in dirs, names))
+            msg = f"(--folders) : {dirs}"
+            logging.info(msg)
+            print(f"Folders : {msg}")
+            
         elif config.get("exclude-folders"):
-            exclude_folders = list(
-                map(lambda x: x.strip(), config.get("exclude-folders").split(","))
-            )
+            exclude_folders = list(map(lambda x: x.strip(), config.get("exclude-folders").split(",")))
+            if config["thunderbird"]:
+                exclude_folders = [
+                    i.replace("Inbox", "INBOX", 1) if i.startswith("Inbox") else i
+                    for i in exclude_folders
+                ]
+            names = list(filter(lambda x: x[0] not in exclude_folders, names))
+            msg = f"(--exclude-folders) : {exclude_folders}"
+            logging.info(msg)
+            print(f"Folders : {msg}")
 
-
+        logging.debug(f"Folders : (download) : {names}")
+        
         opts = DownloadOptions(
                 basedir, config["overwrite"], config["nospinner"], config["thunderbird"]
             )
 
-
+        msg=f"Folders : (--yes-overwrite-mboxes) : {opts.overwrite}"
+        logging.info(msg)
+        print(msg)
+        
         if not create_folder_structure(names, opts.basedir):
             msg = f"Failed to verify/create folder strcucture in: {opts.basedir} for names: {names}"
             logging.error(msg)
@@ -1021,13 +1038,7 @@ def main():
         for name_pair in names:
             try:
                 imapfolder, mailboxfile = name_pair
-                # Skip excluded folders
-                if imapfolder in exclude_folders:
-                    msg = f'{imapfolder}: FILTER: excluding folder'
-                    logging.info(msg)
-                    print(msg)
-                    continue
-
+                
                 # read remote message ids. throws SkipFolderException on error
                 fol_messages = scan_imap_folder(server, imapfolder, opts.nospinner)
 
