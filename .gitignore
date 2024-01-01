@@ -3,6 +3,9 @@
 # C extensions
 *.so
 
+# virtual environment
+.venv
+
 # Packages
 *.egg
 *.egg-info
@@ -34,6 +37,10 @@ nosetests.xml
 .mr.developer.cfg
 .project
 .pydevproject
+.vscode
 
 # Things that might show up during testing
+.data
 *.mbox
+
+
