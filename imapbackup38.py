@@ -61,6 +61,9 @@ import re
 import hashlib
 import sqlite3
 import logging
+import platform
+
+
 
 from dataclasses import dataclass
 
@@ -147,7 +150,6 @@ def string_from_file(value):
 
     with open(os.path.expanduser(value[1:]), mode="r", encoding="utf-8") as content:
         return content.read().strip()
-
 
 @dataclass
 class DownloadOptions:
@@ -833,7 +835,7 @@ def get_config() -> dict:
     return config
 
 
-def imap_connect_and_login(config) -> ( imaplib.IMAP4 | imaplib.IMAP4_SSL):
+def imap_connect_and_login(config):
     """Connects to the server and logs in.  Returns IMAP4 object."""
     try:
         msg=f'Login : (imap) : {config["server"]} as {config["user"]}'
@@ -978,11 +980,20 @@ def main():
             sys.exit(-1)
 
         logfile = f"{basedir}{os.sep}imapbackup38.log"
-        logging.basicConfig(filename=logfile, filemode='w', encoding='utf-8',
-                            format='%(asctime)s - %(levelname)s - %(message)s',
-                            datefmt='%Y-%m-%d %I-%M-%S %p',
-                            level=config["loglevel"]
-                            )
+
+        pyversion = platform.python_version()
+        if pyversion.startswith('3.9'):
+            logging.basicConfig(filename=logfile, filemode='w', encoding='utf-8',
+                                format='%(asctime)s - %(levelname)s - %(message)s',
+                                datefmt='%Y-%m-%d %I-%M-%S %p',
+                                level=config["loglevel"]
+                                )
+        else:
+            logging.basicConfig(filename=logfile, filemode='w',
+                                format='%(asctime)s - %(levelname)s - %(message)s',
+                                datefmt='%Y-%m-%d %I-%M-%S %p',
+                                level=config["loglevel"]
+                                )
 
         print(f"Logfile: {logfile}")
 
