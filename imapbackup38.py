@@ -179,6 +179,9 @@ def download_messages(server, filename, messages, overwrite, nospinner, thunderb
         typ, data = server.fetch(msg_id_str, "(RFC822)")
         assert('OK' == typ)
         data_bytes = data[0][1]
+        if not isinstance(data_bytes, str):
+            continue
+
         text_bytes = data_bytes.strip().replace(b'\r', b'')
         if thunderbird:
             # This avoids Thunderbird mistaking a line starting "From  " as the start
