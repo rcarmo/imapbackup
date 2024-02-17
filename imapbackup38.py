@@ -176,7 +176,7 @@ def download_messages(server, filename, messages, overwrite, nospinner, thunderb
 
         # fetch message
         msg_id_str = str(messages[msg_id])
-        typ, data = server.fetch(msg_id_str, "(BODY[])" if icloud else "(RFC822)")
+        typ, data = server.fetch(msg_id_str, "(BODY.PEEK[])" if icloud else "(RFC822)")
 
 
         assert('OK' == typ)
