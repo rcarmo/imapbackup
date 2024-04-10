@@ -132,7 +132,7 @@ def string_from_file(value):
         return content.read().strip()
 
 
-def download_messages(server, filename, messages, overwrite, nospinner, thunderbird, basedir, icloud):
+def download_messages(server, filename, messages, overwrite, nospinner, thunderbird, basedir):
     """Download messages from folder and append to mailbox"""
 
     fullname = os.path.join(basedir,filename)
@@ -176,12 +176,9 @@ def download_messages(server, filename, messages, overwrite, nospinner, thunderb
 
         # fetch message
         msg_id_str = str(messages[msg_id])
-        typ, data = server.fetch(msg_id_str, "(BODY.PEEK[])" if icloud else "(RFC822)")
-
-
+        typ, data = server.fetch(msg_id_str, "(RFC822)")
         assert('OK' == typ)
         data_bytes = data[0][1]
-
         text_bytes = data_bytes.strip().replace(b'\r', b'')
         if thunderbird:
             # This avoids Thunderbird mistaking a line starting "From  " as the start
@@ -436,7 +433,6 @@ def print_usage():
     print (" -t SECS --timeout=SECS        Sets socket timeout to SECS seconds.")
     print (" --thunderbird                 Create Mozilla Thunderbird compatible mailbox")
     print (" --nospinner                   Disable spinner (makes output log-friendly)")
-    print (" --icloud                      Enable iCloud compatibility mode (for iCloud mailserver)")
     sys.exit(2)
 
 
@@ -447,7 +443,7 @@ def process_cline():
         short_args = "aynekt:c:s:u:p:f:d:"
         long_args = ["append-to-mboxes", "yes-overwrite-mboxes",
                      "ssl", "timeout", "keyfile=", "certfile=", "server=", "user=", "pass=",
-                     "folders=", "exclude-folders=", "thunderbird", "nospinner", "mbox-dir=", "icloud"]
+                     "folders=", "exclude-folders=", "thunderbird", "nospinner", "mbox-dir="]
         opts, extraargs = getopt.getopt(sys.argv[1:], short_args, long_args)
     except getopt.GetoptError:
         print_usage()
@@ -455,7 +451,7 @@ def process_cline():
     warnings = []
     config = {'overwrite': False, 'usessl': False,
               'thunderbird': False, 'nospinner': False,
-              'basedir': ".", 'icloud': False}
+              'basedir': "."}
     errors = []
 
     # empty command line
@@ -496,8 +492,6 @@ def process_cline():
             config['thunderbird'] = True
         elif option == "--nospinner":
             config['nospinner'] = True
-        elif option == "--icloud":
-            config['icloud'] = True
         else:
             errors.append("Unknown option: " + option)
 
@@ -717,7 +711,7 @@ def main():
                 # for f in new_messages:
                 #  print "%s : %s" % (f, new_messages[f])
 
-                download_messages(server, filename, new_messages, config['overwrite'], config['nospinner'], config['thunderbird'], basedir, config['icloud'])
+                download_messages(server, filename, new_messages, config['overwrite'], config['nospinner'], config['thunderbird'], basedir)
 
             except SkipFolderException as e:
                 print (e)
