@@ -105,7 +105,7 @@ def pretty_byte_count(num):
 
 
 # Regular expressions for parsing
-MSGID_RE = re.compile("^Message\-Id\: (.+)", re.IGNORECASE + re.MULTILINE)
+MSGID_RE = re.compile(r"^Message-Id: (.+)", re.IGNORECASE + re.MULTILINE)
 BLANKS_RE = re.compile(r'\s+', re.MULTILINE)
 
 # Constants
@@ -340,7 +340,7 @@ def parse_paren_list(row):
     result = []
 
     # NOTE: RFC3501 doesn't fully define the format of name attributes
-    name_attrib_re = re.compile("^\s*(\\\\[a-zA-Z0-9_]+)\s*")
+    name_attrib_re = re.compile(r"^\s*(\\[a-zA-Z0-9_]+)\s*")
 
     # eat name attributes until ending paren
     while row[0] != ')':
@@ -367,7 +367,7 @@ def parse_paren_list(row):
 
 def parse_string_list(row):
     """Parses the quoted and unquoted strings at the end of a LIST response"""
-    slist = re.compile('\s*(?:"([^"]+)")\s*|\s*(\S+)\s*').split(row)
+    slist = re.compile(r'\s*"([^"]+)"\s*|\s*(\S+)\s*').split(row)
     return [s for s in slist if s]
 
 
