@@ -1,0 +1,10 @@
+# Normalize all text files to LF
+* text eol=lf
+
+# Optional: enforce LF for specific file types
+*.sh text eol=lf
+*.py text eol=lf
+*.ps1 text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.json text eol=lf
